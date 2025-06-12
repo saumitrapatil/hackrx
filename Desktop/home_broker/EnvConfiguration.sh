@@ -1,0 +1,3 @@
+PORT=3000
+JWT_SECRET=premium_estate_jwt_secret_key_2024
+NODE_ENV=development
