@@ -9,3 +9,11 @@ sentence-transformers
 faiss-cpu
 numpy
 google-generativeai
+layoutparser
+rank_bm25
+spacy
+networkx
+z3-solver
+spacy-transformers
+unstructured
+python-multipart

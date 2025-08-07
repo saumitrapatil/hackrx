@@ -3,14 +3,34 @@ from core.models import HackRxRequest
 from core.security import verify_token
 from logic.document_loader import load_document_from_url
 from logic.retrieval import chunk_text, create_faiss_index, search_index
-from logic.generation import generate_answer
+from logic.generation import ReasoningAgent
+import os
+import time
+import logging
+
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize the FastAPI application
 app = FastAPI(
-    title="HackRx 6.0 Intelligent Query-Retrieval System",
-    description="Processes documents to answer contextual questions.",
-    version="1.0.0"
+    title="Cognitive Clause Intelligence (CCI) Framework",
+    description="Advanced Insurance Document Analysis System",
+    version="2.1.0"
 )
+
+# Global cache for document indices
+document_cache = {}
+
+async def get_agent() -> ReasoningAgent:
+    """Get the reasoning agent with API key"""
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Google API key not configured"
+        )
+    return ReasoningAgent(api_key)
 
 @app.post(
     "/api/v1/hackrx/run",
@@ -18,41 +38,72 @@ app = FastAPI(
     dependencies=[Depends(verify_token)]
 )
 async def run_submission(request: HackRxRequest):
-    """
-    This endpoint orchestrates the entire query-retrieval and answer generation pipeline.
-    """
+    """Orchestrate the CCI pipeline with multi-agent reasoning"""
     try:
-        # Step 1: Load and extract text from the document
-        extracted_text = await load_document_from_url(str(request.documents))
+        start_time = time.time()
         
-        # Step 2: Chunk the text
-        text_chunks = chunk_text(extracted_text)
+        cache_key = f"{request.documents}-{hash(frozenset(request.questions))}"
+        if cache_key in document_cache:
+            logger.info("Using cached document index")
+            document_index, text_chunks = document_cache[cache_key]
+        else:
+            logger.info("Processing document...")
+            structured_clauses = await load_document_from_url(str(request.documents))
+            text_chunks = chunk_text(structured_clauses)
+            document_index = create_faiss_index(text_chunks)
+            document_cache[cache_key] = (document_index, text_chunks)
         
-        # Step 3: Create a searchable FAISS index
-        document_index = create_faiss_index(text_chunks)
+        agent = await get_agent()
         
-        # Step 4: Process each question to generate an answer
         final_answers = []
+        confidence_scores = []
+        sources = []
+        
         for question in request.questions:
-            # 4a. Retrieve relevant context
-            relevant_context = search_index(question, document_index, text_chunks)
+            # FIXED: Increased top_k to 12 for a wider context window to improve retrieval accuracy.
+            relevant_context = search_index(
+                question, 
+                document_index, 
+                text_chunks,
+                top_k=12,
+                depth=3
+            )
             
-            # 4b. Generate a structured answer from the context using the LLM
-            llm_result = await generate_answer(question, relevant_context)
+            result = await agent.generate_answer(question, relevant_context)
             
-            # Append just the answer string to the final list, as per the required output format
-            final_answers.append(llm_result.get("answer", "No answer could be generated."))
-
-        # Final Step: Return the response in the specified format [cite: 102]
+            final_answers.append(result["answer"])
+            confidence_scores.append(result["confidence"])
+            sources.append(result["source"])
+        
+        # Quality assurance step remains the same
+        for i in range(len(final_answers)):
+            if confidence_scores[i] < 0.75:
+                logger.warning(f"Low confidence ({confidence_scores[i]}) for question: {request.questions[i]}")
+                relevant_context = search_index(
+                    request.questions[i], 
+                    document_index, 
+                    text_chunks,
+                    top_k=15, # Further increase context for reruns
+                    depth=5
+                )
+                result = await agent.generate_answer(request.questions[i], relevant_context)
+                final_answers[i] = result["answer"]
+                confidence_scores[i] = result["confidence"]
+                sources[i] = result["source"] + "_rerun"
+        
+        processing_time = time.time() - start_time
+        logger.info(f"Processed {len(request.questions)} questions in {processing_time:.2f}s")
+        
         return {"answers": final_answers}
         
     except (ConnectionError, IOError, ValueError) as e:
+        logger.error(f"Input error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        print(f"An unexpected error occurred in main: {e}")
+        logger.exception(f"Unexpected error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected server error occurred: {e}"
@@ -60,5 +111,17 @@ async def run_submission(request: HackRxRequest):
 
 @app.get("/", summary="Health Check")
 async def read_root():
-    """A simple health check endpoint."""
-    return {"status": "ok", "message": "Query-Retrieval System is running."}
+    """Service health check"""
+    return {
+        "status": "ok",
+        "version": "2.1.0",
+        "system": "Cognitive Clause Intelligence Framework"
+    }
+
+@app.get("/cache/clear", summary="Clear Cache")
+async def clear_cache():
+    """Clear document cache"""
+    global document_cache
+    count = len(document_cache)
+    document_cache = {}
+    return {"status": "cache cleared", "items_removed": count}

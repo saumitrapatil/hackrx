@@ -1,10 +1,26 @@
 from pydantic import BaseModel, HttpUrl
-from typing import List
+from typing import List, Dict, Any, Optional
+from enum import Enum
+
+class ClauseType(str, Enum):
+    DEFINITION = "definition"
+    CONDITION = "condition"
+    EXCLUSION = "exclusion"
+    COVERAGE = "coverage"
+    TEMPORAL = "temporal"
+    CALCULATION = "calculation"
+    EXCEPTION = "exception"
+    STAKEHOLDER = "stakeholder"
+    JURISDICTION = "jurisdiction"
+
+class Clause(BaseModel):
+    text: str
+    clause_type: ClauseType
+    hierarchy_level: int
+    dependencies: List[int] = []
+    constraints: Dict[str, Any] = {}
+    metadata: Dict[str, str] = {}
 
 class HackRxRequest(BaseModel):
-    """
-    Defines the structure for the incoming request to the /hackrx/run endpoint.
-    It expects a document URL and a list of questions.
-    """
     documents: HttpUrl
     questions: List[str]
