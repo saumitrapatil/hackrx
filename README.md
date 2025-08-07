@@ -24,8 +24,8 @@ Follow these steps to get your local development environment set up.
 ### 1. Clone the Repository
 Clone this project to your local machine.
 ```bash
-git clone <your-repository-url>
-cd <repository-folder>
+git clone https://github.com/saumitrapatil/hackrx.git
+cd hackrx
 ```
 
 ### 2. Create a Virtual Environment
