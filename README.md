@@ -11,7 +11,7 @@
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
--   Python 3.9+
+-   Python 3.12+
 -   `pip` (Python package installer)
 -   A Google Account to obtain a Gemini API Key.
 
