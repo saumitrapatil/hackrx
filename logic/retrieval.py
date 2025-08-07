@@ -59,7 +59,7 @@ def create_faiss_index(chunks: List[str]) -> faiss.Index:
     return index
 
 
-def search_index(query: str, index: faiss.Index, chunks: List[str], top_k: int = 5) -> List[Dict]:
+def search_index(query: str, index: faiss.Index, chunks: List[str], top_k: int = 5) -> List[dict]:
     """
     Performs semantic search to find the most relevant chunks for a user's query.
 
