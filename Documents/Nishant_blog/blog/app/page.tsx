@@ -86,7 +86,7 @@ export default function Home() {
               Explore Blogs
             </Link>
             <a
-              href="https://github.com/saumitrapatil"
+              href="https://github.com/IAMNISHANTSHUKLA"
               target="_blank"
               rel="noopener noreferrer"
               className="btn-secondary"
